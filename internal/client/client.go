@@ -11,6 +11,8 @@ type IncomingMessage struct {
 }
 
 type Client struct {
+	ID   uint64
+	conn net.Conn
 }
 
 func New() *Client {
