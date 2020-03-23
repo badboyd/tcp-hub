@@ -2,8 +2,11 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/badboyd/tcp-hub/internal/server"
 )
@@ -18,16 +21,15 @@ func init() {
 
 func main() {
 	s := server.New()
-
-	// handle interupt signal
-	go waitForinteruptSignal()
+	defer s.Stop()
 
 	if err := s.Start(&net.TCPAddr{Port: *port}); err != nil {
-		fmt.Printf("Cannot start server: %s", err.Error())
+		log.Printf("Cannot start server: %s", err.Error())
+		return
 	}
 	// wait for terminal signal
-}
-
-func waitForinteruptSignal() {
+	quit := make(chan os.Signal)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
 
 }

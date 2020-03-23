@@ -1,13 +1,14 @@
 package test
 
 import (
-	"github.com/Applifier/golang-backend-assignment/internal/client"
-	"github.com/Applifier/golang-backend-assignment/internal/server"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/badboyd/tcp-hub/internal/client"
+	"github.com/badboyd/tcp-hub/internal/server"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const clientCount = 100

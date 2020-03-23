@@ -1,12 +1,15 @@
 package server
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
-	"strconv"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/badboyd/tcp-hub/pkg/id"
 	"github.com/badboyd/tcp-hub/pkg/message"
@@ -18,23 +21,18 @@ type client struct {
 }
 
 type Server struct {
-	m       sync.RWMutex
-	clients map[uint64]*client
-	close   chan struct{}
-	idSeq   id.Seq
+	m        sync.RWMutex
+	clients  map[uint64]*client
+	close    chan struct{}
+	idSeq    id.Seq
+	listener net.Listener
+	wg       sync.WaitGroup
 }
 
 func New() *Server {
 	return &Server{
 		close:   make(chan struct{}),
 		clients: make(map[uint64]*client),
-	}
-}
-
-func (s *Server) newClient(conn net.Conn) *client {
-	return &client{
-		conn: conn,
-		id:   s.idSeq.Next(),
 	}
 }
 
@@ -45,134 +43,159 @@ func (s *Server) Start(laddr *net.TCPAddr) error {
 	if err != nil {
 		return err
 	}
+	s.listener = listener
 
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			return err
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				log.Printf("Stop accepting conn: %s", err.Error())
+				return
+			}
+
+			cli := &client{
+				id:   s.idSeq.Next(),
+				conn: conn,
+			}
+
+			s.addClient(cli)
+			s.wg.Add(1)
+
+			go func() {
+				defer s.wg.Done()
+				s.handle(cli)
+			}()
 		}
+	}()
 
-		client := s.newClient(conn)
-		s.addClient(client)
-
-		go s.handle(client) //
-	}
-
-	// wait for interupt signal
 	return nil
 }
 
-func (s *Server) addClient(c *client) {
+func (s *Server) addClient(cli *client) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	s.clients[c.id] = c
+	s.clients[cli.id] = cli
 }
 
-func (s *Server) removeClient(c *client) {
+func (s *Server) removeClient(cli *client) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	c.conn.Close()
-	delete(s.clients, c.id)
+	cli.conn.Close()
+	delete(s.clients, cli.id)
 }
 
-func (c *client) getMessage() (*message.Message, error) {
-	bytes := make([]byte, 1100000) // because we have maximum 255 ids and 1024 KB in the payload
-	datalen, err := c.conn.Read(bytes)
-	if err != nil {
-		return nil, err
-	}
+func (s *Server) handle(cli *client) {
+	defer s.removeClient(cli)
 
-	parts := strings.SplitN(string(bytes[:datalen]), "\n", 3)
-	switch parts[0] {
-	case message.IdentityType:
-		return message.NewIdentityMessage(), nil
-	case message.ListType:
-		return message.NewListMessage(c.id), nil
-	case message.RelayType:
-		if len(parts) < 3 {
-			return nil, fmt.Errorf("Wrong format for reply command")
-		}
-		receivers := []uint64{}
-		for _, word := range strings.Split(parts[1], ",") {
-			id, err := strconv.ParseUint(strings.TrimSpace(word), 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("Unknown ID format")
-			}
+	r := bufio.NewReader(cli.conn)
 
-			receivers = append(receivers, id)
-		}
-		return message.NewRelayMessage(c.id, receivers, parts[2]), nil
-	default:
-		return nil, fmt.Errorf("Unknown message format")
-	}
-
-}
-
-// pro
-func (s *Server) handle(c *client) {
-	defer s.removeClient(c)
-
+ReadLoop:
 	for {
-		msg, err := c.getMessage()
-		if err != nil {
-			// log.Printf("Error get message: %s", err.Error())
-			if _, ok := err.(*net.OpError); ok {
-				// look like it is a network error
+		select {
+		case <-s.close:
+			log.Printf("Stop serving client %d\n", cli.id)
+			return
+		default:
+			cli.conn.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
+			line, err := r.ReadString('\n')
+			if err != nil {
+				if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+					continue ReadLoop
+				}
+				log.Printf("[%d] ReadString error: %s\n", cli.id, err.Error())
 				return
 			}
-			c.conn.Write([]byte(fmt.Sprintf("%s\n", err.Error())))
+
+			var msg string
+
+			parts := strings.SplitN(line[:len(line)-1], " ", 2)
+			switch parts[0] {
+			case message.IdentityType:
+				msg = fmt.Sprintf("%s %d\n", message.IdentityType, cli.id)
+			case message.ListType:
+				clientIDs := []uint64{}
+				for _, clientID := range s.ListClientIDs() {
+					if clientID != cli.id {
+						clientIDs = append(clientIDs, clientID)
+					}
+				}
+				sort.Slice(clientIDs, func(i, j int) bool {
+					return clientIDs[i] < clientIDs[j]
+				})
+				msg = fmt.Sprintf("%s %s\n", message.ListType, id.JoinIDArray(clientIDs, ","))
+			case message.RelayType:
+				var size int
+				var receivers string
+
+				if _, err = fmt.Sscanf(parts[1], "%s %d", &receivers, &size); err != nil {
+					log.Printf("Message in wrong format: %s\n", err.Error())
+					return
+				}
+
+				receiverIDs, err := id.ConvertFromStringToIDArray(receivers)
+				if err != nil {
+					log.Printf("ReceiverIDs in wrong format: %s\n", err.Error())
+					return
+				}
+
+				data := make([]byte, size)
+				if _, err = io.ReadFull(r, data); err != nil {
+					log.Printf("Cannot read full data: %s\n", err.Error())
+					return
+				}
+				go s.relayMessage(cli.id, receiverIDs, data)
+			default:
+				msg = "Unknown message\n"
+			}
+
+			if msg != "" {
+				_, err = cli.conn.Write([]byte(msg))
+			}
+			if err != nil {
+				log.Printf("Error write message to %d", cli.id)
+				return
+			}
+		}
+	}
+}
+
+func (s *Server) relayMessage(senderID uint64, clientIDs []uint64, data []byte) {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	msg := fmt.Sprintf("%s %d %d\n%s", message.RelayType, senderID, len(data), string(data))
+	for _, clientID := range clientIDs {
+		if clientID == senderID {
 			continue
 		}
-
-		switch msg.Cmd {
-		case message.IdentityType:
-			_, err = c.conn.Write([]byte(fmt.Sprintf("%d\n", c.id)))
-		case message.ListType:
-			// _, err = c.conn.Write([]byte("Implementing"))
-			clientIDs := []string{}
-			for clientID := range s.clients {
-				if clientID != c.id {
-					clientIDs = append(clientIDs, fmt.Sprint(clientID))
-				}
-			}
-			_, err = c.conn.Write([]byte(strings.Join(clientIDs, ",")))
-		case message.RelayType:
-			c.conn.Write([]byte("Implementing"))
-			for _, clientID := range msg.Receivers {
-				if client := s.clients[clientID]; client != nil {
-					_, err = client.conn.Write([]byte(msg.Body))
-				}
-			}
-		}
-
-		if err != nil {
-			// log.Printf("Error get message: %s", err.Error())
-			if _, ok := err.(*net.OpError); ok {
-				// look like it is a network error
-				return
-			}
-			log.Printf("Error %s", err.Error())
+		if _, err := s.clients[clientID].conn.Write([]byte(msg)); err != nil {
+			log.Printf("Error send msg to %d: %s\n", clientID, err.Error())
 		}
 	}
 }
 
 func (s *Server) ListClientIDs() []uint64 {
-	// TODO: Return the IDs of the connected clients
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	ids := []uint64{}
-	for id := range s.clients {
-		ids = append(ids, id)
+	for clientID := range s.clients {
+		ids = append(ids, clientID)
 	}
 	return ids
 }
 
 func (s *Server) Stop() error {
-	// TODO: Stop accepting connections and close the existing ones
-	// Graceful shutdown
-	close(s.close)
+	log.Println("Stop the server")
+	if s.listener != nil {
+		s.listener.Close()
+	}
+	if s.close != nil {
+		close(s.close)
+	}
+
+	s.wg.Wait()
 	return nil
 }

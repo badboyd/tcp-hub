@@ -20,7 +20,7 @@ test-unit: # TODO: Please implement
 .PHONY: test-unit
 
 test-integration:
-	go test --race -v test/integration_test.go
+	go test --race -v -count=1 test/integration_test.go
 .PHONY: test-integration
 
 test-benchmark:
