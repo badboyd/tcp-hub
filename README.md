@@ -49,6 +49,7 @@ Client can send a list message which the hub will answer with the list of all co
 ![List](docs/list.seq.png)
 
 #### List message protocol
+Response will have list of client ids as a string separated by comma
 ![List](docs/list_protocol.png)
 
 ### Relay message
@@ -64,6 +65,10 @@ Message body can be relayed to one or multiple receivers.
 *Relay example: receivers: 2 and 3, body: foobar*
 
 #### Relay message protocol
+Message send to server looks like this "relay 2,3 5\nhello", "2,3" is recipients, "5" is number bytes of data, the data is "hello"
+
+Message send to client looks like this "relay 1 5\nhello", "1" is sender ID, "5" is number bytes of data, the data is "hello" 
+
 ![Relay](docs/relay_protocol.png)
 
 ## Running and building
