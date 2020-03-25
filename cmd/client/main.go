@@ -29,6 +29,7 @@ func main() {
 	serverAddr := net.TCPAddr{IP: net.ParseIP(*ip), Port: *port}
 	if err := cli.Connect(&serverAddr); err != nil {
 		log.Println("Cannot connet to server: ", err.Error())
+		return
 	}
 
 	switch *cmd {
@@ -43,7 +44,7 @@ func main() {
 	case message.ListType:
 		clientIDs, err := cli.ListClientIDs()
 		if err != nil {
-			log.Println("Cannot get identity: ", err.Error())
+			log.Println("Cannot get list clientIDs: ", err.Error())
 			return
 		}
 

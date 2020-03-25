@@ -81,6 +81,10 @@ func (cli *Client) ListClientIDs() ([]uint64, error) {
 	if err != nil {
 		return nil, err
 	}
+	if line == "list \n" {
+		// you are the only one client
+		return nil, nil
+	}
 
 	var clients string
 	if _, err := fmt.Sscanf(line, message.ListReplyFmt, &clients); err != nil {
