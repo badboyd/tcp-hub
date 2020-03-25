@@ -121,11 +121,9 @@ ReadLoop:
 						clientIDs = append(clientIDs, clientID)
 					}
 				}
-				sort.Slice(clientIDs, func(i, j int) bool {
-					return clientIDs[i] < clientIDs[j]
-				})
 				msg = fmt.Sprintf("%s %s\n", message.ListType, id.JoinIDArray(clientIDs, ","))
 			case message.RelayType:
+				var err error
 				var size int
 				var receivers string
 
@@ -134,7 +132,7 @@ ReadLoop:
 					return
 				}
 
-				receiverIDs, err := id.ConvertFromStringToIDArray(receivers)
+				receiverIDs, err := id.ConvertFromStringToArray(receivers)
 				if err != nil {
 					log.Printf("ReceiverIDs in wrong format: %s\n", err.Error())
 					return
@@ -180,11 +178,14 @@ func (s *Server) ListClientIDs() []uint64 {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
-	ids := []uint64{}
+	clientIDs := []uint64{}
 	for clientID := range s.clients {
-		ids = append(ids, clientID)
+		clientIDs = append(clientIDs, clientID)
 	}
-	return ids
+	sort.Slice(clientIDs, func(i, j int) bool {
+		return clientIDs[i] < clientIDs[j]
+	})
+	return clientIDs
 }
 
 func (s *Server) Stop() error {

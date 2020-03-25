@@ -25,7 +25,7 @@ func (i *Seq) Next() uint64 {
 	return i.seq
 }
 
-func ConvertFromStringToIDArray(s string) ([]uint64, error) {
+func ConvertFromStringToArray(s string) ([]uint64, error) {
 	receivers := []uint64{}
 	for _, word := range strings.Split(s, ",") {
 		id, err := strconv.ParseUint(strings.TrimSpace(word), 10, 64)

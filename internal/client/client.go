@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"strings"
-	"sync"
 
 	"github.com/badboyd/tcp-hub/pkg/id"
 	"github.com/badboyd/tcp-hub/pkg/message"
@@ -19,17 +18,13 @@ type IncomingMessage struct {
 }
 
 type Client struct {
-	id    uint64
-	conn  net.Conn
-	r     *bufio.Reader
-	m     sync.Mutex
-	close chan struct{}
+	id   uint64
+	conn net.Conn
+	r    *bufio.Reader
 }
 
 func New() *Client {
-	return &Client{
-		close: make(chan struct{}),
-	}
+	return &Client{}
 }
 
 func (cli *Client) Connect(serverAddr *net.TCPAddr) error {
@@ -43,7 +38,10 @@ func (cli *Client) Connect(serverAddr *net.TCPAddr) error {
 }
 
 func (cli *Client) Close() error {
-	return cli.conn.Close()
+	if cli.conn != nil {
+		return cli.conn.Close()
+	}
+	return nil
 }
 
 func (cli *Client) WhoAmI() (uint64, error) {
@@ -82,7 +80,7 @@ func (cli *Client) ListClientIDs() ([]uint64, error) {
 		return nil, err
 	}
 
-	return id.ConvertFromStringToIDArray(clients)
+	return id.ConvertFromStringToArray(clients)
 }
 
 func (cli *Client) SendMsg(recipients []uint64, body []byte) error {
@@ -103,10 +101,6 @@ func (cli *Client) HandleIncomingMessages(writeCh chan<- IncomingMessage) {
 
 		parts := strings.SplitN(line[:len(line)-1], " ", 2)
 		switch parts[0] {
-		case message.IdentityType:
-			// TODO: handle it
-		case message.ListType:
-			// TODO: handle it
 		case message.RelayType:
 			var size int
 			var sender uint64
