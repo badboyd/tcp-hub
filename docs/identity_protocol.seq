@@ -1,0 +1,5 @@
+sequenceDiagram
+    participant Client
+    participant Hub
+    Client->>Hub: "identity\\nn"
+    Hub->>Client: "identity 1\\nn"

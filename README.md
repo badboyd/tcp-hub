@@ -35,15 +35,25 @@ You don't need to implement authentication, hub can for example assign arbitrary
 
 Clients are users who are connected to the hub. Client may send three types of messages which are described below.
 
+![List](docs/list.seq.png)
+
+![Relay](docs/relay.seq.png)
+
 ### Identity message
 Client can send a identity message which the hub will answer with the user_id of the connected user.
 
 ![Identity](docs/identity.seq.png)
 
+#### Identity message protocol
+![Identity](docs/identity_protocol.png)
+
 ### List message
 Client can send a list message which the hub will answer with the list of all connected client user_id:s (excluding the requesting client).
 
 ![List](docs/list.seq.png)
+
+#### List message protocol
+![List](docs/list_protocol.png)
 
 ### Relay message
 Client can send a relay messages which body is relayed to receivers marked in the message.
@@ -56,6 +66,9 @@ Message body can be relayed to one or multiple receivers.
 ![Relay](docs/relay.seq.png)
 
 *Relay example: receivers: 2 and 3, body: foobar*
+
+#### Relay message protocol
+![Relay](docs/relay_protocol.png)
 
 ## Running and building
 

@@ -1,0 +1,5 @@
+sequenceDiagram
+    participant Client
+    participant Hub
+    Client->>Hub: "list\\nn"
+    Hub->>Client: "list 1,2\\nn"

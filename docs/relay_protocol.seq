@@ -1,0 +1,8 @@
+sequenceDiagram
+    participant Client1
+    participant Client2
+    participant Client3
+    participant Hub
+    Client1->>Hub: "relay 2,3 5\\nnhello"
+    Hub->>Client2: "relay 1 5\\nnhello"
+    Hub->>Client3: "relay 1 5\\nnhello"
