@@ -27,8 +27,10 @@ func main() {
 		log.Printf("Cannot start server: %s", err.Error())
 		return
 	}
-	// wait for terminal signal
+
+	// create a channel to catch interupt signal
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	// wait for terminal signal
 	<-quit
 }
