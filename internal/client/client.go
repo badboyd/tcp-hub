@@ -12,21 +12,25 @@ import (
 	"github.com/badboyd/tcp-hub/pkg/message"
 )
 
+// IncomingMessage stores the relayed message from server
 type IncomingMessage struct {
 	SenderID uint64
 	Body     []byte
 }
 
+// Client keeps needed to communicate with server
 type Client struct {
 	id   uint64
 	conn net.Conn
 	r    *bufio.Reader
 }
 
+// New returns new client
 func New() *Client {
 	return &Client{}
 }
 
+// Connect to serverAddr
 func (cli *Client) Connect(serverAddr *net.TCPAddr) error {
 	conn, err := net.Dial(serverAddr.Network(), serverAddr.String())
 	if err != nil {
@@ -37,6 +41,7 @@ func (cli *Client) Connect(serverAddr *net.TCPAddr) error {
 	return nil
 }
 
+// Close client
 func (cli *Client) Close() error {
 	if cli.conn != nil {
 		return cli.conn.Close()
@@ -44,6 +49,7 @@ func (cli *Client) Close() error {
 	return nil
 }
 
+// WhoAmI get the clientID from server
 func (cli *Client) WhoAmI() (uint64, error) {
 	msg := fmt.Sprintf("%s\n", message.IdentityType)
 	if _, err := cli.conn.Write([]byte(msg)); err != nil {
@@ -64,6 +70,7 @@ func (cli *Client) WhoAmI() (uint64, error) {
 	return id, nil
 }
 
+// ListClientIDs gets others clientID that connecting to server
 func (cli *Client) ListClientIDs() ([]uint64, error) {
 	msg := fmt.Sprintf("%s\n", message.ListType)
 	if _, err := cli.conn.Write([]byte(msg)); err != nil {
@@ -83,6 +90,7 @@ func (cli *Client) ListClientIDs() ([]uint64, error) {
 	return id.ConvertFromStringToArray(clients)
 }
 
+// SendMsg sends body to recipients
 func (cli *Client) SendMsg(recipients []uint64, body []byte) error {
 	receivers := id.JoinIDArray(recipients, ",")
 	msg := fmt.Sprintf("%s %s %d\n%s", message.RelayType, receivers, len(body), string(body))
@@ -91,6 +99,8 @@ func (cli *Client) SendMsg(recipients []uint64, body []byte) error {
 	return err
 }
 
+// HandleIncomingMessages handle incoming relayed message from server
+// should run in other goroutine
 func (cli *Client) HandleIncomingMessages(writeCh chan<- IncomingMessage) {
 	for {
 		line, err := cli.r.ReadString('\n')

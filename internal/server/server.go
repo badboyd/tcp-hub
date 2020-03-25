@@ -20,6 +20,7 @@ type client struct {
 	conn net.Conn
 }
 
+// Server handles and stores clients information
 type Server struct {
 	m        sync.RWMutex
 	clients  map[uint64]*client
@@ -29,6 +30,7 @@ type Server struct {
 	wg       sync.WaitGroup
 }
 
+// New creates new server
 func New() *Server {
 	return &Server{
 		close:   make(chan struct{}),
@@ -36,6 +38,7 @@ func New() *Server {
 	}
 }
 
+// Start server at laddr
 func (s *Server) Start(laddr *net.TCPAddr) error {
 	log.Println("Start server at ", laddr.String())
 
@@ -174,6 +177,7 @@ func (s *Server) relayMessage(senderID uint64, clientIDs []uint64, data []byte) 
 	}
 }
 
+// ListClientIDs returns all the connecting clientIDs
 func (s *Server) ListClientIDs() []uint64 {
 	s.m.RLock()
 	defer s.m.RUnlock()
@@ -188,6 +192,7 @@ func (s *Server) ListClientIDs() []uint64 {
 	return clientIDs
 }
 
+// Stop server
 func (s *Server) Stop() error {
 	log.Println("Stop the server")
 	if s.listener != nil {
