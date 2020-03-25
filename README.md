@@ -35,10 +35,6 @@ You don't need to implement authentication, hub can for example assign arbitrary
 
 Clients are users who are connected to the hub. Client may send three types of messages which are described below.
 
-![List](docs/list.seq.png)
-
-![Relay](docs/relay.seq.png)
-
 ### Identity message
 Client can send a identity message which the hub will answer with the user_id of the connected user.
 
