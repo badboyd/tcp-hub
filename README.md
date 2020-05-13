@@ -1,5 +1,3 @@
-# Golang backend assignment
-
 ## Table of contents
 
 * [Running and building](#running-and-building)
