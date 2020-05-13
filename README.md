@@ -2,24 +2,8 @@
 
 ## Table of contents
 
-* [Assignment](#assignment)
 * [Running and building](#running-and-building)
 * [Testing](#testing)
-
-## Assignment
-
-Return your answer as a zip file containing all relevant files _with tests_ (including `.git`, so that we can see your commit history).
-Do not fork this repo.
-If you create your own git repo, please make sure it is private, so that the other candidates cannot access your solution.
-
-Design and implement (with tests) a _message delivery system_ using [Go](http://golang.org/) programming language,
-including both the server and the client.
-You are free to use any external libs if needed.
-The protocol must be on top of pure TCP, don't use existing application level protocols like HTTP or WebSockets.
-
-We don't value over-engineering.
-Provide a readable minimalistic implementation that has understandable split to well-named source files and functions.
-Impress us with simplicity, good unit tests and a working solution.
 
 In this simplified scenario the message delivery system includes the following parts:
 
